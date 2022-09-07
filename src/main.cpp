@@ -16,6 +16,7 @@
 #include "../include/readDAT.h"
 #include "../include/readSTLbnd.h"
 #include "../include/normalprismatic.h"
+#include "../include/loops.h"
 
 
 Eigen::MatrixXd V;
@@ -80,49 +81,33 @@ int main(int argc, char* argv[])
     Eigen::MatrixXi F1;
     Eigen::MatrixXd V_uvp;
     Eigen::MatrixXi F_uvp;
-    expan::readSTLbnd("R.wrl",V1,F1);
-
-   // expan::readNACADAT("naca4.dat", V1, F1);
-    std::map<int, std::vector<int>> next;
-    std::vector<std::array<int, 2>> loop;
-    for (int j = 0; j < F1.rows(); j++) {
-        next[F1(j, 0)].push_back(F1(j, 1));
-        next[F1(j, 1)].push_back(F1(j,0));
-    }
-    //loop.push_back(std::array<int, 2>{ F1(0, 0),F1(0, 1) });
-    //for (int j = 1; j < F1.rows(); j++) {
-    //    int p1=loop.back()[1];
-    //    int p2= loop.back()[0];
-    //    int p3 = next[p1][0] + next[p1][1] - p2;
-    //    loop.push_back({ p1,p3 });
-    //}
-
-    //igl::list_to_matrix(loop,F1);
+    RIGIDT::readSTLbnd("IMR.wrl",V1,F1);
 
     
-    //orient loop
-    //Eigen::MatrixXd p(1,2);
-    //p(0, 0) = 1e10;
-    //p(0, 1) = 1e10;
-    //
-    //if (igl::winding_number(V1, F1, p) > 0) {
-        //for (int j = 0; j < F1.rows(); j++) {
-        //    swap(F1(j, 0), F1(j, 1));
-        //}
-    //}
+    auto L=RIGIDT::findLoop(F1);
+    auto loop_group=RIGIDT::orientLoop(L, V1);
+    Eigen::MatrixXd V2;
+    Eigen::MatrixXi F2;
+    RIGIDT::reoriganize(loop_group,V1,V2,F2);
+
 
 
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
-    NormalPrismaticMesh mesh(V1, F1, 0.01, 1.1);
-    mesh.getCylinderMesh(V,F);
-    mesh.getUVMesh(V_uvp, F_uvp);
+    hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, 0.01, 1.1));
+
+
+    hybrid_data.mesh->getCylinderMesh(V,F);
+    hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
    
     
     Eigen::MatrixXd bnd_uv, uv_init;
 
     Eigen::VectorXd M;
     igl::doublearea(V, F, M);
-    hybrid_data.all_bnds = mesh.getAllBound();
+    hybrid_data.all_bnds = hybrid_data.mesh->getAllBound();
+
+   
+
     V_uvp.conservativeResize(V.rows(), 2);
     uv_init = V_uvp;
     std::vector<int> fix_id(V1.size());
@@ -134,6 +119,14 @@ int main(int argc, char* argv[])
 
     Eigen::VectorXi b; Eigen::MatrixXd bc;
     igl::triangle::scaf_precompute(V, F, uv_init, hybrid_data, igl::MappingEnergyType::SYMMETRIC_DIRICHLET, b, bc, 0);
+
+
+
+    igl::triangle::scaf_solve(hybrid_data, 2);
+
+    Eigen::MatrixXd V_final = hybrid_data.w_uv.topRows(V.rows());
+    hybrid_data.mesh->saveVTK("test_quad.vtk", V_final);
+
 
     // Plot the mesh
     igl::opengl::glfw::Viewer viewer;

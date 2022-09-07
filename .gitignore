@@ -33,4 +33,9 @@
 *.swo
 *.swp
 
+# Visible Figure
+*.pvsm
+*.step
+*.vtk
+
 build/*

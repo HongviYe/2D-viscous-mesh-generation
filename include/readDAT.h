@@ -11,7 +11,7 @@
 #include <fstream>
 #include <cstdio>
 
-namespace expan {
+namespace RIGIDT {
     template <typename DerivedV, typename DerivedF>
     bool readNACADAT(
         const std::string str,

@@ -22,8 +22,15 @@ public:
 
 	std::vector<std::vector<int>> getAllBound();
 	void getUVMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c);
-	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c);
 
+	void getDiscreteCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale, std::vector<int>& discrete_map_2_nondiscrete);
+	
+
+
+
+	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale= Eigen::VectorXd());
+
+	void saveVTK(std::string filename, Eigen::MatrixXd& coordinate);
 	void getSimpleCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c);
 	
 public:
@@ -39,8 +46,44 @@ public:
 	
 	int nlayer_;
 
-};
+	double target_length_;
 
+};
+inline void NormalPrismaticMesh::saveVTK(std::string filename, Eigen::MatrixXd& coordinate)
+{
+	std::ofstream fout(filename);
+	fout << "# vtk DataFile Version 2.0" << std::endl;
+	fout << "boundary layer mesh" << std::endl;
+	fout << "ASCII" << std::endl;
+	fout << "DATASET UNSTRUCTURED_GRID" << std::endl;
+	fout << "POINTS " << coordinate.rows() * 3 << " double" << std::endl;
+	int target_layer = nlayer_ - 1;
+	for (int i = 0; i < coordinate.rows(); i++) {
+		fout << coordinate(i, 0) << " " << coordinate(i, 1) << " " << 0 << std::endl;
+	}
+	fout << "CELLS " << target_layer * V_.rows() << " " << 5 * target_layer * V_.rows() << std::endl;
+
+	std::vector<std::array<int, 4>> f_c;
+	for (int i = 0; i < target_layer; i++) {
+
+		int index_offset = (i + 1) * V_.rows();
+		int lower_offset = i * V_.rows();
+
+		for (int j = 0; j < V_.rows(); j++) {
+			f_c.push_back({ F_(j,0) + lower_offset,F_(j,1) + lower_offset,F_(j,1) + index_offset,F_(j,0) + index_offset });
+		}
+	}
+
+	for (auto i : f_c) {
+		fout << 4 << " " << i[0] << " " << i[1] << " " << i[2] << " " << i[3] << std::endl;
+	}
+	fout << "CELL_TYPES " << nlayer_ * V_.rows() << std::endl;
+	for (int i = 0; i < nlayer_ * V_.rows(); i++) {
+		fout << 9 << std::endl;
+	}
+	fout.close();
+
+}
 
 std::vector<std::vector<int>> NormalPrismaticMesh::getAllBound() {
 	double height = 1e-5;
@@ -109,7 +152,7 @@ std::vector<std::vector<int>> NormalPrismaticMesh::getAllBound() {
 
 void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c)
 {
-	double height = 1e-2;
+	double height = 1e-3;
 	std::vector<std::array<int, 3>> f_c;
 	std::vector<std::array<double, 3>> v_c;
 
@@ -175,9 +218,68 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c)
 
 
 }
+void NormalPrismaticMesh::getDiscreteCylinderMesh(Eigen::MatrixXd& V_c,
+	Eigen::MatrixXi& F_c, 
+	Eigen::VectorXd& scale,
+	std::vector<int>& discrete_map_2_nondiscrete) {
 
 
-void NormalPrismaticMesh::getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c)
+	std::vector<int> &d2nd= discrete_map_2_nondiscrete;
+	std::vector<std::array<int, 3>> f_c;
+	std::vector<std::array<double, 3>> v_c;
+
+
+
+
+	std::vector<double> sum(F_.rows(),0);
+	for (int j = 0; j < F_.rows(); j++) {
+		d2nd.push_back(F_(j, 0)); d2nd.push_back(F_(j, 1));
+
+		v_c.push_back({ V_(F_(j,0),0),V_(F_(j,0),1),0 });		
+		v_c.push_back({ V_(F_(j,1),0),V_(F_(j,1),1),0 });
+	}
+	for (int i = 0; i < nlayer_; i++) {
+	for (int j = 0; j < F_.rows(); j++) {
+		double q = 1;
+		if (scale.rows())
+			q = scale(j);	
+			double buff = sum[j] + q*pow(ratio_, i) * first_layer_length_;
+			sum[j] = buff;
+
+			int curr_s = v_c.size();
+			int lower_s = v_c.size() - 2 * F_.rows();
+
+			f_c.push_back({ lower_s,lower_s+1,curr_s+1 });
+			f_c.push_back({ lower_s,curr_s +1,curr_s });
+
+			f_c.push_back({ lower_s,lower_s+1,curr_s });
+			f_c.push_back({ lower_s+1,curr_s+1,curr_s });
+
+
+			int index_offset = (i + 1) * V_.rows();
+
+
+			d2nd.push_back(F_(j, 0)+ index_offset);
+			d2nd.push_back(F_(j, 1) + index_offset);
+
+			v_c.push_back({ V_(F_(j,0),0),V_(F_(j,0),1),buff });
+			v_c.push_back({ V_(F_(j,1),0),V_(F_(j,1),1),buff });
+
+
+
+		}
+	}
+
+	bool V_rect = igl::list_to_matrix(v_c, V_c);
+
+	for (auto& i : f_c) {
+		std::swap(i[0], i[1]);
+	}
+
+	bool F_rect = igl::list_to_matrix(f_c, F_c);
+}
+
+void NormalPrismaticMesh::getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c,Eigen::VectorXd& scale)
 {
 
 	std::vector<std::array<int, 3>> f_c;
@@ -187,14 +289,19 @@ void NormalPrismaticMesh::getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi
 		v_c.push_back({ V_(j,0),V_(j,1),0 });
 	}
 
+	
 	double sum = 0;
 	for (int i = 0; i < nlayer_; i++) {
 		double buff = sum + pow(ratio_, i) * first_layer_length_;
 		sum = buff;
+		
 		int index_offset = (i + 1) * V_.rows();
 		int lower_offset = i * V_.rows();
 		for (int j = 0; j < V_.rows(); j++) {
-			v_c.push_back({ V_(j,0),V_(j,1),buff });
+			double q = 1;
+			if (scale.rows())
+				q = scale(j);
+			v_c.push_back({ V_(j,0),V_(j,1),q*buff });
 		}
 		for (int j = 0; j < V_.rows(); j++) {
 			f_c.push_back({ F_(j,0)+ lower_offset,F_(j,1)+ lower_offset,F_(j,1) + index_offset });
@@ -204,7 +311,7 @@ void NormalPrismaticMesh::getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi
 			f_c.push_back({ F_(j,1) + lower_offset,F_(j,1) + index_offset,F_(j,0) + index_offset });
 		}
 	}
-
+	target_length_ = sum;
 	bool V_rect = igl::list_to_matrix(v_c, V_c);
 
 	for (auto& i : f_c) {
@@ -226,6 +333,7 @@ int NormalPrismaticMesh::calculateLayer()
 	nlayer_ = log(length / first_layer_length_) / log(ratio_);
 	if (!nlayer_)
 		nlayer_ = 2;
+	nlayer_++;// add a preserving layer
 	return 0;
 }
 

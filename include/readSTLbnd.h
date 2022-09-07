@@ -15,7 +15,7 @@
 #include <fstream>
 #include <cstdio>
 
-namespace expan {
+namespace RIGIDT {
     template <typename DerivedV, typename DerivedF>
     bool readSTLbnd(
         const std::string str,
@@ -39,6 +39,7 @@ namespace expan {
         std::vector<std::array<int, 2>> edges;
         std::map<int, int> index_map; int pnum = 0;
         for (int i = 0; i < all_bnds.size(); i++) {
+            std::reverse(all_bnds[i].begin(), all_bnds[i].end());
             for (int j = 0; j < all_bnds[i].size(); j++) {
                 if (index_map.find(all_bnds[i][j]) == index_map.end()) {
                     index_map[all_bnds[i][j]] = pnum++;
