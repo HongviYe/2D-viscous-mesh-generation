@@ -64,7 +64,7 @@ namespace RIGIDT {
 		for (int i = 0; i < l.size(); i++)
 		{
 			int j = (i + 1) % l.size();
-			area += (double)(V(i, 0) * V(j, 1) - V(i, 1) * V(j, 0)) / 2.0;
+			area += (double)(V(l[i], 0) * V(l[j], 1) - V(l[i], 1) * V(l[j], 0)) / 2.0;
 		}
 		return area;
 	}
@@ -80,7 +80,7 @@ namespace RIGIDT {
 		auto input_copy = input;
 		for (int i = 0; i < input.size(); i++) {
 			double a = calArea(input[i], V);
-			if (a > 0)
+			if (a < 0)
 				std::reverse(input_copy[i].begin(), input_copy[i].end());
 			A.push_back(abs(a));
 		}
@@ -93,7 +93,9 @@ namespace RIGIDT {
 		std::vector<std::vector<int>> subindex(input_copy.size());
 		for (int i = 0; i < input_copy.size(); i++) {
 			for (int j = 0; j < input_copy.size(); j++) {
-				Eigen::Vector2d p(V(input[i][0],0), V(input[i][0], 1));
+				if (i == j)
+					continue;
+				Eigen::Vector2d p(V(input_copy[i][0],0), V(input_copy[i][0], 1));
 
 				Eigen::MatrixXi F;
 				std::vector<std::array<int, 2>> l;
@@ -102,7 +104,7 @@ namespace RIGIDT {
 				}
 				igl::list_to_matrix(l, F);
 				double v=igl::winding_number(V,F,p);
-				if (v != 0) {
+				if (v >  0.1) {
 					subindex[j].push_back(i);
 				}
 			}

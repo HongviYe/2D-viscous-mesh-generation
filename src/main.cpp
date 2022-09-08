@@ -1,4 +1,4 @@
-#include <igl/triangle/scaf.h>
+
 #include <igl/arap.h>
 #include <igl/boundary_loop.h>
 #include <igl/harmonic.h>
@@ -12,21 +12,26 @@
 #include <igl/flipped_triangles.h>
 #include <igl/topological_hole_fill.h>
 #include <igl/winding_number.h>
+#include <igl/writeSTL.h>
+#include <igl/list_to_matrix.h>
+#include <igl/cat.h>
 
+#include "../include/normalprismatic.h"
+#include "../include/rigidmapping.h"
 #include "../include/readDAT.h"
 #include "../include/readSTLbnd.h"
-#include "../include/normalprismatic.h"
 #include "../include/loops.h"
+#include "../include/writeVTK.h"
 
-
+using namespace RIGIDT;
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
 Eigen::MatrixXd V_uv;
 igl::Timer timer;
-igl::triangle::SCAFData hybrid_data;
+RIGIDT::SCAFData hybrid_data;
 
 bool show_uv = false;
-float uv_scale = 0.2f;
+float uv_scale = 1.0f;
 
 bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier)
 {
@@ -39,7 +44,7 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
     {
         timer.start();
 
-        igl::triangle::scaf_solve(hybrid_data, 1);
+        RIGIDT::scaf_solve(hybrid_data, 1);
         std::cout << "time = " << timer.getElapsedTime() << std::endl;
     }
 
@@ -81,11 +86,12 @@ int main(int argc, char* argv[])
     Eigen::MatrixXi F1;
     Eigen::MatrixXd V_uvp;
     Eigen::MatrixXi F_uvp;
-    RIGIDT::readSTLbnd("IMR.wrl",V1,F1);
+    RIGIDT::readSTLbnd("crmhl.wrl",V1,F1);
 
     
     auto L=RIGIDT::findLoop(F1);
     auto loop_group=RIGIDT::orientLoop(L, V1);
+
     Eigen::MatrixXd V2;
     Eigen::MatrixXi F2;
     RIGIDT::reoriganize(loop_group,V1,V2,F2);
@@ -93,9 +99,9 @@ int main(int argc, char* argv[])
 
 
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
-    hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, 0.01, 1.1));
+    hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, 0.005, 1.1));
 
-
+    
     hybrid_data.mesh->getCylinderMesh(V,F);
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
    
@@ -118,20 +124,26 @@ int main(int argc, char* argv[])
 
 
     Eigen::VectorXi b; Eigen::MatrixXd bc;
-    igl::triangle::scaf_precompute(V, F, uv_init, hybrid_data, igl::MappingEnergyType::SYMMETRIC_DIRICHLET, b, bc, 0);
+    RIGIDT::scaf_precompute(V, F, uv_init, hybrid_data, igl::MappingEnergyType::SYMMETRIC_DIRICHLET, b, bc, 0);
 
 
 
-    igl::triangle::scaf_solve(hybrid_data, 2);
-
+    RIGIDT::scaf_solve(hybrid_data, 100);
+    const auto& V_uv = uv_scale * hybrid_data.w_uv.topRows(V.rows());
     Eigen::MatrixXd V_final = hybrid_data.w_uv.topRows(V.rows());
     hybrid_data.mesh->saveVTK("test_quad.vtk", V_final);
 
-
+    Eigen::MatrixXd V_edge; RIGIDT::LoopGroup lg;
+    hybrid_data.mesh->getTopLoop(loop_group, V1, V_uv, V_edge, lg);
+    Eigen::MatrixXd V_tri;
+    Eigen::MatrixXi F_tri;
+    hybrid_data.mesh->generateOuterTriMesh(lg,V_edge,V_tri, F_tri);
+    RIGIDT::writeVTK("test.vtk",V_tri, F_tri);
+    
     // Plot the mesh
     igl::opengl::glfw::Viewer viewer;
-    viewer.data().set_mesh(V, F);
-    const auto& V_uv = uv_scale * hybrid_data.w_uv.topRows(V.rows());
+    viewer.data().set_mesh(V_tri, F_tri);
+   
     viewer.data().set_uv(V_uv);
     viewer.callback_key_down = &key_down;
 
