@@ -23,6 +23,8 @@
 #include "../include/loops.h"
 #include "../include/writeVTK.h"
 
+#include "../third/CLI11/include/CLI/CLI.hpp"
+
 using namespace RIGIDT;
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
@@ -79,6 +81,31 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
 #define PA "C:/code/libigl-example-project/build/_deps/libigl_tutorial_tata-src"
 int main(int argc, char* argv[])
 {
+	CLI::App app("2Dexpansion");
+
+	std::string input_filename;
+	double first_length=0.01;
+	double ratio=1.15;
+	int max_iteration = 100;
+
+
+	app.description("A 2d viscous mesh generator.");
+	app.add_option("-i", input_filename, "input filename. (string, required, supported format: wrl)")->required();
+	app.add_option("-r", ratio, "the expansion ratio");
+	app.add_option("-f", first_length, "the height of the first layer.");
+	app.add_option("-I", max_iteration, "the maximum times of iteration.");
+
+	/// prase the input command by CLI
+	try {
+		app.parse(argc, argv);
+	}
+	catch (const CLI::ParseError &e) {
+		return app.exit(e);
+	}
+
+
+	
+
     using namespace std;
     // Load a mesh in OFF format
 
@@ -86,7 +113,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXi F1;
     Eigen::MatrixXd V_uvp;
     Eigen::MatrixXi F_uvp;
-    RIGIDT::readSTLbnd("crmhl.wrl",V1,F1);
+    RIGIDT::readSTLbnd(input_filename,V1,F1);
 
     
     auto L=RIGIDT::findLoop(F1);
@@ -99,7 +126,7 @@ int main(int argc, char* argv[])
 
 
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
-    hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, 0.005, 1.1));
+    hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
 
     
     hybrid_data.mesh->getCylinderMesh(V,F);
@@ -128,7 +155,7 @@ int main(int argc, char* argv[])
 
 
 
-    RIGIDT::scaf_solve(hybrid_data, 100);
+    RIGIDT::scaf_solve(hybrid_data, max_iteration);
     const auto& V_uv = uv_scale * hybrid_data.w_uv.topRows(V.rows());
     Eigen::MatrixXd V_final = hybrid_data.w_uv.topRows(V.rows());
     hybrid_data.mesh->saveVTK("test_quad.vtk", V_final);
