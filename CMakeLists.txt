@@ -22,4 +22,4 @@ ${INC_FILES}
 ${SRC_FILES} 
 )
 add_executable(${PROJECT_NAME} ${ALL_FILES})
-target_link_libraries(${PROJECT_NAME} PUBLIC igl::glfw triangle_expansion libdtiso2d libgeom) 
+target_link_libraries(${PROJECT_NAME} PUBLIC igl::glfw triangle libdtiso2d libgeom) 

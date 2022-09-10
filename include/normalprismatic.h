@@ -42,7 +42,7 @@ public:
 		Eigen::MatrixXd& newV,
 		RIGIDT::LoopGroup& newl);
 
-	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale= Eigen::VectorXd());
+	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale);
 
 	void saveVTK(std::string filename, Eigen::MatrixXd& coordinate);
 	void getSimpleCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c);

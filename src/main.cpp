@@ -128,8 +128,8 @@ int main(int argc, char* argv[])
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
     hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
 
-    
-    hybrid_data.mesh->getCylinderMesh(V,F);
+    Eigen::VectorXd scale = Eigen::VectorXd();
+    hybrid_data.mesh->getCylinderMesh(V, F, scale);
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
    
     

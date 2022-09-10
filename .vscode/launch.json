@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            // workspaceFolder 是当前打开的目录
+            "program": "${workspaceFolder}/build/expansion", // 运行的程序
+            "args": ["-i", "${workspaceFolder}/test/M.wrl"], //输入参数
+            "stopAtEntry": false, // 不在main函数入口停止
+            "cwd": "${workspaceFolder}",    // Working dirctory
+            "preLaunchTask": "make", // 上一个任务
+            "environment": [],
+            "externalConsole": false, // 不新打开窗口
+            "MIMode": "gdb",
+	        "miDebuggerPath": "/usr/bin/gdb", // gdb的路径
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing"//,
+                    // "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
