@@ -59,7 +59,7 @@ namespace RIGIDT
       Eigen::VectorXi internal_bnd;
       Eigen::MatrixXd rect_frame_V;
       // multi-chart support
-      std::vector<int> component_sizes;
+      Eigen::MatrixXd  component_sizes;
       std::vector<int> bnd_sizes;
 
       
@@ -89,6 +89,8 @@ namespace RIGIDT
         void scaf_precompute(
             const Eigen::MatrixXd& V,
             const Eigen::MatrixXi& F,
+            const Eigen::MatrixXd& Discre_V,
+            const Eigen::MatrixXi& Discre_F,
             const Eigen::MatrixXd& V_init,
             SCAFData& data,
             igl::MappingEnergyType slim_energy,

@@ -220,19 +220,7 @@ namespace RIGIDT
   E(V.rows() - 1, 1) = acc_bs;
   assert(acc_bs == s.internal_bnd.size());
 
-  MatrixXd H = MatrixXd::Zero(s.component_sizes.size(), 2);
-  {
-    int hole_f = 0;
-    int hole_i = 0;
-    for (auto cs : s.component_sizes)
-    {
-      for (int i = 0; i < 3; i++)
-        H.row(hole_i) += m_uv.row(s.m_T(hole_f, i)); // redoing step 2
-      hole_f += cs;
-      hole_i++;
-    }
-  }
-  H /= 3.;
+  MatrixXd& H = s.component_sizes;
 
   MatrixXd uv2;
   igl::triangle::triangulate(V, E, H, std::basic_string<char>("qYYQ"), uv2, s.s_T);
@@ -285,7 +273,7 @@ namespace RIGIDT
 
   int num_holes = s.all_bnds.size() - 1;
 
-  s.component_sizes.push_back(F_ref.rows());
+ //s.component_sizes.push_back(F_ref.rows());
 
   MatrixXd m_uv = s.w_uv.topRows(s.mv_num);
   igl::cat(1, m_uv, uv_init, s.w_uv);
@@ -845,6 +833,8 @@ namespace RIGIDT {
     void scaf_precompute(
         const Eigen::MatrixXd& V,
         const Eigen::MatrixXi& F,
+        const Eigen::MatrixXd& Discre_V,
+        const Eigen::MatrixXi& Discre_F,
         const Eigen::MatrixXd& V_init,
         SCAFData& data,
         igl::MappingEnergyType slim_energy,
@@ -882,9 +872,11 @@ namespace RIGIDT {
                 return P;
             };
             Eigen::SparseMatrix<double> G;
-            igl::grad(s.m_V, s.m_T, G);
-            s.Dx_m = face_proj(F1) * G;
-            s.Dy_m = face_proj(F2) * G;
+            //igl::grad(s.m_V, s.m_T, G);
+            //s.Dx_m = face_proj(F1) * G;
+            //s.Dy_m = face_proj(F2) * G;
+
+            recompute_dxdy(s);
 
             compute_scaffold_gradient_matrix(s, s.Dx_s, s.Dy_s);
 

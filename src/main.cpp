@@ -29,10 +29,13 @@ using namespace RIGIDT;
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
 Eigen::MatrixXd V_uv;
+Eigen::MatrixXd V_tri;
+Eigen::MatrixXi F_tri;
 igl::Timer timer;
 RIGIDT::SCAFData hybrid_data;
 
 bool show_uv = false;
+bool show_whole = false;
 float uv_scale = 1.0f;
 
 bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier)
@@ -41,6 +44,12 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
         show_uv = false;
     else if (key == '2')
         show_uv = true;
+    else if (key == '3')
+        show_whole = !show_whole;
+    else if (key == 's') {
+   
+    }
+
 
     if (key == ' ')
     {
@@ -50,28 +59,33 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
         std::cout << "time = " << timer.getElapsedTime() << std::endl;
     }
 
-    const auto& V_uv = uv_scale * hybrid_data.w_uv;// .topRows(V.rows());
+    const auto& V_uv = uv_scale * hybrid_data.w_uv.topRows(V.rows());
+    const auto& V_uv_whole = uv_scale * hybrid_data.w_uv;
+
     if (show_uv)
     {
+
         Eigen::MatrixXi Topo;
         igl::cat(1,F, hybrid_data.s_T, Topo);
         viewer.data().clear();
-        viewer.data().set_mesh(V_uv, Topo);
-        viewer.data().set_uv(V_uv);
-        viewer.core().align_camera_center(V_uv, Topo);
-        //Eigen::MatrixXd color_map(Topo.rows(),3);
-        //for (int i = 0; i < Topo.rows(); i++) {
-        //    color_map(i, 0) = 1;
-        //    color_map(i, 1) = 1;
-        //    color_map(i, 2) = 1;
-        //}
-        //viewer.data().set_colormap(color_map);
+        if (show_whole) {
+            viewer.data().set_mesh(V_uv_whole, Topo);
+            viewer.data().set_uv(V_uv_whole);
+
+
+
+        }
+        else {
+            viewer.data().set_mesh(V_uv, F);
+            viewer.data().set_uv(V_uv);
+        }
+        
     }
     else
     {
-        //viewer.data().set_mesh(V, F);
-        //viewer.data().set_uv(V_uv);
-        //viewer.core().align_camera_center(V, F);
+        viewer.data().set_mesh(V, F);
+        viewer.data().set_uv(V_uv);
+       // viewer.core().align_camera_center(V, F);
     }
 
     viewer.data().compute_normals();
@@ -87,6 +101,8 @@ int main(int argc, char* argv[])
 	double first_length=0.01;
 	double ratio=1.15;
 	int max_iteration = 100;
+    double preserving_layer_height = 1;// 1 means by default, 0.5 means half of the default value, so as on 
+    bool use_multiple_normal = false;//optional
 
 
 	app.description("A 2d viscous mesh generator.");
@@ -94,6 +110,8 @@ int main(int argc, char* argv[])
 	app.add_option("-r", ratio, "the expansion ratio");
 	app.add_option("-f", first_length, "the height of the first layer.");
 	app.add_option("-I", max_iteration, "the maximum times of iteration.");
+    app.add_option("-p", preserving_layer_height, "the height ratio of presering layer: e.g. 1 means the default value, and 0.2 means half of the default value.");
+    app.add_option("--multiple", use_multiple_normal, "whether use multiple normal or not.");
 
 	/// prase the input command by CLI
 	try {
@@ -123,16 +141,31 @@ int main(int argc, char* argv[])
     Eigen::MatrixXi F2;
     RIGIDT::reoriganize(loop_group,V1,V2,F2);
 
+    int count = 0;
+    
+    
+
 
 
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
     hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
 
-    
+    hybrid_data.mesh->setPreservingLayer(preserving_layer_height);
+
+    Eigen::MatrixXd Discre_V;
+    Eigen::MatrixXi Discre_F;
     hybrid_data.mesh->getCylinderMesh(V,F);
+    hybrid_data.mesh->getDiscreteCylinderMesh(Discre_V, Discre_F);
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
+
+    if (use_multiple_normal) {
+        hybird_data.mesh->setMultipleNormal();
+    }
    
-    
+
+
+    hybrid_data.mesh->getHoles(loop_group, V1, hybrid_data.component_sizes);
+
     Eigen::MatrixXd bnd_uv, uv_init;
 
     Eigen::VectorXd M;
@@ -151,31 +184,31 @@ int main(int argc, char* argv[])
 
 
     Eigen::VectorXi b; Eigen::MatrixXd bc;
-    RIGIDT::scaf_precompute(V, F, uv_init, hybrid_data, igl::MappingEnergyType::SYMMETRIC_DIRICHLET, b, bc, 0);
+    RIGIDT::scaf_precompute(V,F,Discre_V, Discre_F, uv_init, hybrid_data, igl::MappingEnergyType::SYMMETRIC_DIRICHLET, b, bc, 0);
 
 
 
     RIGIDT::scaf_solve(hybrid_data, max_iteration);
     const auto& V_uv = uv_scale * hybrid_data.w_uv.topRows(V.rows());
     Eigen::MatrixXd V_final = hybrid_data.w_uv.topRows(V.rows());
-    hybrid_data.mesh->saveVTK("test_quad.vtk", V_final);
+    hybrid_data.mesh->saveVTK("quad.vtk", V_final);
 
     Eigen::MatrixXd V_edge; RIGIDT::LoopGroup lg;
     hybrid_data.mesh->getTopLoop(loop_group, V1, V_uv, V_edge, lg);
-    Eigen::MatrixXd V_tri;
-    Eigen::MatrixXi F_tri;
     hybrid_data.mesh->generateOuterTriMesh(lg,V_edge,V_tri, F_tri);
-    RIGIDT::writeVTK("test.vtk",V_tri, F_tri);
+    RIGIDT::writeVTK("tri.vtk",V_tri, F_tri);
+    RIGIDT::writeVTK("tri_triangle.vtk", hybrid_data.w_uv, hybrid_data.s_T);
     
     // Plot the mesh
     igl::opengl::glfw::Viewer viewer;
     viewer.data().set_mesh(V_tri, F_tri);
+    viewer.core().background_color= Eigen::Vector4f(1,1,1,1);
    
     viewer.data().set_uv(V_uv);
     viewer.callback_key_down = &key_down;
 
     // Enable wireframe
-    viewer.data().show_lines = true;
+    viewer.data().show_lines = true; 
 
     // Draw checkerboard texture
     viewer.data().show_texture = true;

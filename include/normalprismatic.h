@@ -32,7 +32,7 @@ public:
 	std::vector<std::vector<int>> getAllBound();
 	void getUVMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c);
 
-	void getDiscreteCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale, std::vector<int>& discrete_map_2_nondiscrete);
+	void getDiscreteCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale = Eigen::VectorXd(), std::vector<int>& discrete_map_2_nondiscrete = std::vector<int>());
 	
 	void generateOuterTriMesh(const RIGIDT::LoopGroup& loops, const Eigen::MatrixXd& V_input, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
 
@@ -42,10 +42,17 @@ public:
 		Eigen::MatrixXd& newV,
 		RIGIDT::LoopGroup& newl);
 
+	void getHoles(const RIGIDT::LoopGroup& loops, const Eigen::MatrixXd& V_input, Eigen::MatrixXd& H);
+
+
 	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale= Eigen::VectorXd());
 
 	void saveVTK(std::string filename, Eigen::MatrixXd& coordinate);
 	void getSimpleCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c);
+
+	void setPreservingLayer(const double& val);
+
+	void setMultipleNormal();
 	
 public:
 	
@@ -62,6 +69,7 @@ public:
 
 	RIGIDT::LoopGroup loops_;
 
+	double preserving_layer_height_;
 	double target_length_;
 
 };
