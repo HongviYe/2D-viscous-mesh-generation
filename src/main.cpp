@@ -150,16 +150,18 @@ int main(int argc, char* argv[])
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
     hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
 
+
     hybrid_data.mesh->setPreservingLayer(preserving_layer_height);
 
     Eigen::MatrixXd Discre_V;
     Eigen::MatrixXi Discre_F;
     hybrid_data.mesh->getCylinderMesh(V,F);
     hybrid_data.mesh->getDiscreteCylinderMesh(Discre_V, Discre_F);
+
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
 
     if (use_multiple_normal) {
-        hybird_data.mesh->setMultipleNormal();
+        hybrid_data.mesh->setMultipleNormal();
     }
    
 

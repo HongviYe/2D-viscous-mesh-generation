@@ -1,0 +1,81 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_dir",
+            "command": "mkdir", // 创建build文件夹
+            "type": "shell",
+            "args": [
+                "-p",
+                "build"
+            ]
+        },
+        {   // 在build文件夹中调用cmake进行项目配置
+            "label": "cmake",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Debug", // debug模式
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON", // 生成compile_commands.json 供c/c++扩展提示使用
+                "../"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build", // 该工作目录下运行 cmake ../ -DXXX -DXXX
+            },
+            "dependsOn": [
+                "build_dir" // 在task `build_dir` 后执行该task
+            ]
+        },
+        {   // 在build文件夹中调用cmake进行项目配置
+            "label": "make",
+            "type": "shell",
+            "command": "make",
+            "options": {
+                "cwd": "${workspaceFolder}/build", // 该工作目录下运行 cmake ../ -DXXX -DXXX
+            },
+            "dependsOn": [
+                "cmake" // 在task `build_dir` 后执行该task
+            ]
+        },
+        // {   // 在build文件夹中调用cmake编译构建debug程序
+        //     // 执行的命令为`cmake --build ./ --target all --`
+        //     "label": "build",
+        //     "group": "build",
+        //     "type": "shell",
+        //     "command": "cmake",
+        //     "args": [
+        //         "--build",
+        //         "./",
+        //         "--target",
+        //         "all",
+        //         "--"
+        //     ],
+        //     "options": {
+        //         "cwd": "${workspaceFolder}/build",
+        //     },
+        //     "problemMatcher": "$gcc",
+        //     "dependsOn": [
+        //         "cmake" // 在task `cmake` 后执行该task
+        //     ]
+        // }
+    ],
+    "inputs": [
+        {
+            "id": "PLATFORM",
+            "type": "pickString",
+            "description": "What PLATFORM do you want to create?",
+            "options": [
+                "x86",
+                "amd64",
+                "arm",
+                "x86_arm",
+                "x86_amd64",
+                "amd64_x86",
+                "amd64_arm",
+            ],
+            "default": "amd64"
+        }
+    ]
+}

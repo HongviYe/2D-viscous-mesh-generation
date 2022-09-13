@@ -42,10 +42,12 @@ public:
 		Eigen::MatrixXd& newV,
 		RIGIDT::LoopGroup& newl);
 
+
 	void getHoles(const RIGIDT::LoopGroup& loops, const Eigen::MatrixXd& V_input, Eigen::MatrixXd& H);
 
 
 	void getCylinderMesh(Eigen::MatrixXd & V_c, Eigen::MatrixXi& F_c, Eigen::VectorXd& scale= Eigen::VectorXd());
+
 
 	void saveVTK(std::string filename, Eigen::MatrixXd& coordinate);
 	void getSimpleCylinderMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c);
