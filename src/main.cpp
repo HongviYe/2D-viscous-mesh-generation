@@ -22,6 +22,7 @@
 #include "../include/readSTLbnd.h"
 #include "../include/loops.h"
 #include "../include/writeVTK.h"
+#include "../include/multiplenormal.h"
 
 #include "../third/CLI11/include/CLI/CLI.hpp"
 
@@ -143,12 +144,16 @@ int main(int argc, char* argv[])
 
     int count = 0;
     
+	RIGIDT::VirtualMeshGeneration(V2,F2,V2,F2);
     
 
 
 
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
     hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
+	//  if (use_multiple_normal) {
+//	hybrid_data.mesh->setMultipleNormal();
+	//  }
 
 
     hybrid_data.mesh->setPreservingLayer(preserving_layer_height);
@@ -160,9 +165,7 @@ int main(int argc, char* argv[])
 
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
 
-    if (use_multiple_normal) {
-        hybrid_data.mesh->setMultipleNormal();
-    }
+
    
 
 

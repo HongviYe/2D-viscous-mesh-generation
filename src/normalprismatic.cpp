@@ -1,5 +1,6 @@
 #include <igl/cat.h>
 #include <igl/segment_segment_intersect.h>
+#include <igl/matrix_to_list.h>
 
 #include "../include/dtiso2deigen.h"
 #include "../include/normalprismatic.h"
@@ -46,8 +47,50 @@ void NormalPrismaticMesh::setPreservingLayer(const double& val)
 
 void NormalPrismaticMesh::setMultipleNormal()
 {
-	//first we calculate the angle
-	//the numbe of extra normal=(angle-180)/89
+
+
+
+}
+
+void NormalPrismaticMesh::setNormal()
+{
+	std::vector<std::array<double, 2>> point_normals;
+	std::vector<std::array<double, 2>> front_normals(F_.rows());
+
+
+	std::vector<std::pair<int, int>> pre_next(V_.rows());
+	std::vector<std::pair<int, int>> front_pre_next(V_.rows());
+	for (int i = 0; i < F_.rows(); i++) {
+		pre_next[F_(i, 0)].first = F_(i, 1);
+		front_pre_next[F_(i, 0)].first = i;
+		pre_next[F_(i, 1)].second = F_(i, 0);
+		front_pre_next[F_(i, 1)].second = i;
+	}
+
+	for (int j = 0; j < V_.rows(); j++) {
+		int pre = pre_next[j].first;
+		int next = pre_next[j].second;
+
+
+		double x1 = V_(j, 0) - V_(next, 0);
+		double y1 = V_(j, 1) - V_(next, 1);
+		double x2 = V_(pre, 0) - V_(j, 0);
+		double y2 = V_(pre, 1) - V_(j, 1);
+
+		double x3 = -y1;
+		double x4 = -y2;
+		double y3 = x1;
+		double y4 = x2;
+		double s3 = sqrt(x3 * x3 + y3 * y3);
+		double s4 = sqrt(x4 * x4 + y4 * y4);
+		x3 /= s3; y3 /= s3; x4 /= s4; y4 /= s4;
+		front_normals[front_pre_next[j].second] = {x3,y3};	front_normals[front_pre_next[j].first] = { x4,y4 };
+
+		double s = sqrt((-x3 - x4) * (-x3 - x4) + (-y3 - y4) * (-y3 - y4));
+		point_normals.push_back({ (-x3 - x4) / s,(-y3 - y4) / s });
+	}
+	igl::list_to_matrix(point_normals, point_normals_);
+	igl::list_to_matrix(front_normals, front_normals_);
 }
 
 std::vector<std::vector<int>> NormalPrismaticMesh::getAllBound() {
@@ -125,35 +168,7 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 	std::vector<std::array<double, 3>> v_c_dir;
 
 
-	std::vector<std::array<double, 2>> normals;
 
-	std::vector<std::pair<int, int>> pre_next(V_.rows());
-	for (int i = 0; i < F_.rows(); i++) {
-		pre_next[F_(i, 0)].first = F_(i, 1);
-		pre_next[F_(i, 1)].second = F_(i, 0);
-	}
-
-	for (int j = 0; j < V_.rows(); j++) {
-		int pre = pre_next[j].first;
-		int next = pre_next[j].second;
-
-
-		double x1 = V_(j, 0) - V_(next, 0);
-		double y1 = V_(j, 1) - V_(next, 1);
-		double x2 = V_(pre, 0) - V_(j, 0);
-		double y2 = V_(pre, 1) - V_(j, 1);
-
-		double x3 = -y1;
-		double x4 = -y2;
-		double y3 = x1;
-		double y4 = x2;
-		double s3 = sqrt(x3 * x3 + y3 * y3);
-		double s4 = sqrt(x4 * x4 + y4 * y4);
-		x3 /= s3; y3 /= s3; x4 /= s4; y4 /= s4;
-
-		double s = sqrt((-x3 - x4) * (-x3 - x4) + (-y3 - y4) * (-y3 - y4));
-		normals.push_back({( - x3 - x4)/s,( - y3 - y4)/s});
-	}
 
 	for (int j = 0; j < V_.rows(); j++) {
 		v_c_start.push_back({ V_(j,0),V_(j,1) });
@@ -168,7 +183,7 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 		int index_offset = (i + 1) * V_.rows();
 		for (int j = 0; j < V_.rows(); j++) {
 			v_c_start.push_back({ V_(j,0) ,V_(j,1),0 });
-			v_c_dir.push_back({ buff  * normals[j][0], buff  * normals[j][1],0 });
+			v_c_dir.push_back({ buff  * point_normals_(j,0), buff  * point_normals_(j,1),0 });
 		}
 		for (int j = 0; j < V_.rows(); j++) {
 			f_c.push_back({ F_(j,0) + lower_offset,F_(j,1) + lower_offset,F_(j,1) + index_offset });
@@ -206,6 +221,7 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 				inter |=igl::segment_segment_intersect(p1,dir1,p2,dir2,t,u,eps);
 			}
 		}
+	//	break;
 		if (!inter)
 			break;
 		std::cout << height_start << std::endl;
