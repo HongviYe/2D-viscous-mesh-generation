@@ -27,7 +27,7 @@ namespace RIGIDT
     {
       double scaffold_factor = 0.01;//
       igl::MappingEnergyType scaf_energy = igl::MappingEnergyType::SYMMETRIC_DIRICHLET;
-      igl::MappingEnergyType slim_energy = igl::MappingEnergyType::ARAP;
+      igl::MappingEnergyType slim_energy = igl::MappingEnergyType::SYMMETRIC_DIRICHLET;
       std::vector<std::vector<int>> all_bnds;
       // Output
       int dim = 2;
@@ -37,6 +37,7 @@ namespace RIGIDT
       long mv_num = 0, mf_num = 0;
       long sv_num = 0, sf_num = 0;
       long v_num{}, f_num = 0;
+      int input_point_num;
       Eigen::MatrixXd m_V; // input initial mesh V
       Eigen::MatrixXi m_T; // input initial mesh F/T
       // INTERNAL
@@ -61,9 +62,12 @@ namespace RIGIDT
       // multi-chart support
       Eigen::MatrixXd  component_sizes;
       std::vector<int> bnd_sizes;
+      Eigen::VectorXd scales;
 
       
-    
+      Eigen::MatrixXi target_F;
+
+      Eigen::MatrixXd target_V;
         // reweightedARAP interior variables.
         bool has_pre_calc = false;
         Eigen::SparseMatrix<double> Dx_s, Dy_s, Dz_s;
@@ -130,6 +134,8 @@ namespace RIGIDT
         //    whole: Include scaffold if true
          double compute_energy(SCAFData &s, const Eigen::MatrixXd &w_uv, bool whole);
 
+
+         void compute_biggest_singular_value(SCAFData& s, Eigen::VectorXd& vec);
 }
 
 

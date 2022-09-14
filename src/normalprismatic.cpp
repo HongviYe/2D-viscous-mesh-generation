@@ -4,6 +4,7 @@
 
 #include "../include/dtiso2deigen.h"
 #include "../include/normalprismatic.h"
+#include "../include/multiplenormal.h"
 void NormalPrismaticMesh::saveVTK(std::string filename, Eigen::MatrixXd& coordinate)
 {
 	std::ofstream fout(filename);
@@ -55,16 +56,22 @@ void NormalPrismaticMesh::setMultipleNormal()
 void NormalPrismaticMesh::setNormal()
 {
 	std::vector<std::array<double, 2>> point_normals;
-	std::vector<std::array<double, 2>> front_normals(F_.rows());
+	std::vector<std::array<double, 2>> front_normals(F_.rows(), {-10,-10});
 
 
 	std::vector<std::pair<int, int>> pre_next(V_.rows());
 	std::vector<std::pair<int, int>> front_pre_next(V_.rows());
+	std::vector<std::vector<int>> neighbour_front(F_.rows());
 	for (int i = 0; i < F_.rows(); i++) {
 		pre_next[F_(i, 0)].first = F_(i, 1);
 		front_pre_next[F_(i, 0)].first = i;
 		pre_next[F_(i, 1)].second = F_(i, 0);
 		front_pre_next[F_(i, 1)].second = i;
+		
+	}
+	for (auto i : front_pre_next) {
+		neighbour_front[i.first].push_back(i.second);
+		neighbour_front[i.second].push_back(i.first);
 	}
 
 	for (int j = 0; j < V_.rows(); j++) {
@@ -83,11 +90,34 @@ void NormalPrismaticMesh::setNormal()
 		double y4 = x2;
 		double s3 = sqrt(x3 * x3 + y3 * y3);
 		double s4 = sqrt(x4 * x4 + y4 * y4);
-		x3 /= s3; y3 /= s3; x4 /= s4; y4 /= s4;
-		front_normals[front_pre_next[j].second] = {x3,y3};	front_normals[front_pre_next[j].first] = { x4,y4 };
-
-		double s = sqrt((-x3 - x4) * (-x3 - x4) + (-y3 - y4) * (-y3 - y4));
-		point_normals.push_back({ (-x3 - x4) / s,(-y3 - y4) / s });
+		if (s3 > 1e-9) {
+			x3 /= s3; y3 /= s3;
+			front_normals[front_pre_next[j].second] = { x3,y3 };
+		}
+		if (s4 > 1e-9) {
+			x4 /= s4; y4 /= s4;
+			front_normals[front_pre_next[j].first] = { x4,y4 };
+		}
+		
+		if (s3 > 1e-9 && s4 > 1e-9) {
+			double s = sqrt((-x3 - x4) * (-x3 - x4) + (-y3 - y4) * (-y3 - y4));
+			point_normals.push_back({ (-x3 - x4) / s,(-y3 - y4) / s });
+		}
+		else if (s3 > 1e-9) {
+			point_normals.push_back({ (-x3 ) ,(-y3 )  });
+		}
+		else {
+			point_normals.push_back({ (-x4) ,(-y4) });
+		}
+	}
+	for (int i = 0; i < F_.rows(); i++) {
+		if (front_normals[i][0] == -10) {
+			front_normals[i][0]=(front_normals[neighbour_front[i][0]][0] + front_normals[neighbour_front[i][1]][0]) ;
+			front_normals[i][1] = (front_normals[neighbour_front[i][0]][1] + front_normals[neighbour_front[i][1]][1]);
+			double s = sqrt(front_normals[i][0] * front_normals[i][0] + front_normals[i][1] * front_normals[i][1]);
+			front_normals[i][0] /= s;
+			front_normals[i][1] /= s;
+		}
 	}
 	igl::list_to_matrix(point_normals, point_normals_);
 	igl::list_to_matrix(front_normals, front_normals_);
@@ -168,6 +198,14 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 	std::vector<std::array<double, 3>> v_c_dir;
 
 
+	std::vector<double> initlength(F_.rows());
+	for (int j = 0; j < F_.rows(); j++) {
+		double x = V_(F_(j, 0), 0) - V_(F_(j, 1), 0);
+		double y = V_(F_(j, 0), 1) - V_(F_(j, 1), 1);
+		initlength[j] = sqrt(x * x + y * y);
+	}
+
+
 
 
 	for (int j = 0; j < V_.rows(); j++) {
@@ -185,7 +223,9 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 			v_c_start.push_back({ V_(j,0) ,V_(j,1),0 });
 			v_c_dir.push_back({ buff  * point_normals_(j,0), buff  * point_normals_(j,1),0 });
 		}
-		for (int j = 0; j < V_.rows(); j++) {
+		
+		for (int j = 0; j < F_.rows(); j++) {
+
 			f_c.push_back({ F_(j,0) + lower_offset,F_(j,1) + lower_offset,F_(j,1) + index_offset });
 			f_c.push_back({ F_(j,0) + lower_offset,F_(j,1) + index_offset,F_(j,0) + index_offset });
 
@@ -206,7 +246,15 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 			for (int j = i+1; j < F_.rows(); j++) {
 				Eigen::Vector3d p1; Eigen::Vector3d dir1; Eigen::Vector3d p2; Eigen::Vector3d dir2;
 
-				if (F_(i, 1) == F_(j, 0) || F_(i, 0) == F_(j, 1))// if share the same point
+				//if (F_(i, 1) == F_(j, 0) || F_(i, 0) == F_(j, 1))// if share the same point
+				//	continue;
+				if (V_(F_(i, 1), 0) == V_(F_(i, 0), 0) && V_(F_(i, 1), 1) == V_(F_(i, 0), 1))
+					continue;
+				if (V_(F_(j, 1), 0) == V_(F_(j, 0), 0) && V_(F_(j, 1), 1) == V_(F_(j, 0), 1))
+					continue;
+				if (V_(F_(i, 1), 0) == V_(F_(j, 0), 0) && V_(F_(i, 1), 1) == V_(F_(j, 0), 1))
+					continue;
+				if (V_(F_(j, 1), 0) == V_(F_(i, 0), 0) && V_(F_(j, 1), 1) == V_(F_(i, 0), 1))
 					continue;
 
 				for (int k = 0; k < 2; k++) {
@@ -227,6 +275,7 @@ void NormalPrismaticMesh::getUVMesh(Eigen::MatrixXd& V_c, Eigen::MatrixXi& F_c)
 		std::cout << height_start << std::endl;
 		height_start /= 2;
 	}
+	height_start /= 2;
 
 
 
@@ -253,25 +302,71 @@ void NormalPrismaticMesh::getDiscreteCylinderMesh(Eigen::MatrixXd& V_c,
 
 
 	std::vector<double> sum(F_.rows(), 0);
+	std::vector < double > outlength(F_.rows()); std::vector<std::vector<int>> neigh(V_.rows());
 	for (int j = 0; j < F_.rows(); j++) {
-		d2nd.push_back(F_(j, 0)); d2nd.push_back(F_(j, 1));
-
-		v_c.push_back({ V_(F_(j,0),0),V_(F_(j,0),1),0 });
-		v_c.push_back({ V_(F_(j,1),0),V_(F_(j,1),1),0 });
+		double x= V_(F_(j, 0), 0) - V_(F_(j, 1), 0);
+		double y= V_(F_(j, 0), 1) - V_(F_(j, 1), 1);
+		outlength[j] = sqrt(x * x + y * y);
+		neigh[F_(j, 0)].push_back(j); neigh[F_(j, 1)].push_back(j);
 	}
+	std::vector<double> initlength = outlength;
+	for (int k = 0; k < 10; k++) {
+		std::vector < double > length_copy = outlength;
+		for (auto j: neigh) {
+			outlength[j[0]] += length_copy[j[1]];
+			outlength[j[1]] += length_copy[j[0]];
+		}
+		for (auto& i : outlength)
+			i /= 3;
+	}
+
+
 	for (int i = 0; i < nlayer_; i++) {
 		for (int j = 0; j < F_.rows(); j++) {
 			double q = 1;
 			if (scale.rows())
 				q = scale(j);
-			double buff = sum[j] + q * pow(ratio_, i) * first_layer_length_;
+			double height =  q * pow(ratio_, i) * first_layer_length_;
 			if (i == nlayer_ - 1 && preserving_layer_height_ > 0) {
-				buff = sum[j] + q * preserving_layer_height_*pow(ratio_, i) * first_layer_length_;
+				height =  q * preserving_layer_height_ * pow(ratio_, i) * first_layer_length_;
 			}
-			sum[j] = buff;
+			double height_low=sum[j];
+			double height_upper = sum[j]+height;
+			double length = (initlength[j] * (nlayer_-i) + outlength[j] * i)/nlayer_;
 
-			int curr_s = v_c.size();
-			int lower_s = v_c.size() - 2 * F_.rows();
+			std::array<double, 3> n{ -front_normals_(j,0) ,-front_normals_(j,1) ,0};
+			std::array<double, 3> o{ (V_(F_(j,1),0) - V_(F_(j,0),0))/ initlength[j],(V_(F_(j,1),1) - V_(F_(j,0),1))/ initlength[j],0};
+
+			int lower_s = v_c.size();
+			int curr_s = v_c.size()+2;
+
+			int index_offset = (i + 1) * V_.rows();
+			int lower_offset = (i)*V_.rows();
+
+			//virtual mesh 
+			
+
+
+			v_c.push_back({ V_(F_(j,0),0) + n[0] * height_low,V_(F_(j,0),1) + n[1] * height_low,0});
+			v_c.push_back({ V_(F_(j,0),0) + o[0] * length + n[0] * height_low,V_(F_(j,0),1) + o[1] * length + n[1] * height_low,0 });
+
+			v_c.push_back({ V_(F_(j,0),0) + n[0] * height_upper,V_(F_(j,0),1) + n[1] * height_upper,0 });
+			v_c.push_back({ V_(F_(j,0),0) + o[0] * length + n[0] * height_upper,V_(F_(j,0),1) + o[1] * length + n[1] * height_upper,0 });
+
+			d2nd.push_back(F_(j, 0) + lower_offset);
+			d2nd.push_back(F_(j, 1) + lower_offset);
+			d2nd.push_back(F_(j, 0) + index_offset);
+			d2nd.push_back(F_(j, 1) + index_offset);
+
+			sum[j] += height;
+
+
+			if (i == 0 && initlength[j] < 10*RIGIDT::VIRTURALSCALE) {
+				length= (initlength[j] * (nlayer_ -1) + outlength[j] * 1) / nlayer_;
+				v_c[v_c.size() - 1] = { V_(F_(j,0),0) + o[0] * length + n[0] * height_upper,V_(F_(j,0),1) + o[1] * length + n[1] * height_upper,0 };
+
+
+			}
 
 			f_c.push_back({ lower_s,lower_s + 1,curr_s + 1 });
 			f_c.push_back({ lower_s,curr_s + 1,curr_s });
@@ -279,17 +374,7 @@ void NormalPrismaticMesh::getDiscreteCylinderMesh(Eigen::MatrixXd& V_c,
 			f_c.push_back({ lower_s,lower_s + 1,curr_s });
 			f_c.push_back({ lower_s + 1,curr_s + 1,curr_s });
 
-
-			int index_offset = (i + 1) * V_.rows();
-
-
-			d2nd.push_back(F_(j, 0) + index_offset);
-			d2nd.push_back(F_(j, 1) + index_offset);
-
-			v_c.push_back({ V_(F_(j,0),0),V_(F_(j,0),1),buff });
-			v_c.push_back({ V_(F_(j,1),0),V_(F_(j,1),1),buff });
-
-
+		
 
 		}
 	}

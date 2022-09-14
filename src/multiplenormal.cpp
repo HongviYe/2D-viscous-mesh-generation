@@ -7,7 +7,7 @@ namespace RIGIDT {
 	void VirtualMeshGeneration(const Eigen::MatrixXd  V_input, const Eigen::MatrixXi  F_input, Eigen::MatrixXd & V_output, Eigen::MatrixXi & F_output)
 	{
 		//first we calculate the angle
-	//the numbe of extra normal=(angle-180)/61
+	//the numbe of extra normal=(angle-180)/91
 
 
 		const auto& F_ = F_input; const auto& V_ = V_input;
@@ -75,8 +75,9 @@ namespace RIGIDT {
 			if (num_extra_normal == 1) {
 			
 				int new_point_id = v.size();
-				v.push_back({ V_(j,0) + 0.001*(v1(0)), V_(j,1) + 0.001*(v1(1)) });
-				v[j] = { V_(j,0) + 0.001*( v2(0)), V_(j,1) + 0.001*( v2(1)) };
+				double scale = VIRTURALSCALE;
+				v.push_back({ V_(j,0) + scale *(v1(0)), V_(j,1) + scale *(v1(1)) });
+				v[j] = { V_(j,0) + scale *( v2(0)), V_(j,1) + scale *( v2(1)) };
 				f[pre][0] = new_point_id;
 				f.push_back({j,new_point_id});
 			}

@@ -84,7 +84,8 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
     }
     else
     {
-        viewer.data().set_mesh(V, F);
+        viewer.data().clear();
+        viewer.data().set_mesh(hybrid_data.target_V, hybrid_data.target_F);
         viewer.data().set_uv(V_uv);
        // viewer.core().align_camera_center(V, F);
     }
@@ -143,7 +144,7 @@ int main(int argc, char* argv[])
     RIGIDT::reoriganize(loop_group,V1,V2,F2);
 
     int count = 0;
-    
+    if(use_multiple_normal)
 	RIGIDT::VirtualMeshGeneration(V2,F2,V2,F2);
     
 
@@ -152,11 +153,12 @@ int main(int argc, char* argv[])
     //igl::readOBJ(string(PA)+"/camel_b.obj", V, F);
     hybrid_data.mesh=std::shared_ptr<NormalPrismaticMesh>(new NormalPrismaticMesh(V2, F2, first_length, ratio));
 	//  if (use_multiple_normal) {
-//	hybrid_data.mesh->setMultipleNormal();
+	//hybrid_data.mesh->setMultipleNormal();
 	//  }
 
 
     hybrid_data.mesh->setPreservingLayer(preserving_layer_height);
+    hybrid_data.input_point_num = V2.rows();
 
     Eigen::MatrixXd Discre_V;
     Eigen::MatrixXi Discre_F;
@@ -201,12 +203,13 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd V_edge; RIGIDT::LoopGroup lg;
     hybrid_data.mesh->getTopLoop(loop_group, V1, V_uv, V_edge, lg);
     hybrid_data.mesh->generateOuterTriMesh(lg,V_edge,V_tri, F_tri);
+
     RIGIDT::writeVTK("tri.vtk",V_tri, F_tri);
     RIGIDT::writeVTK("tri_triangle.vtk", hybrid_data.w_uv, hybrid_data.s_T);
     
     // Plot the mesh
     igl::opengl::glfw::Viewer viewer;
-    viewer.data().set_mesh(V_tri, F_tri);
+    viewer.data().set_mesh(Discre_V, Discre_F);
     viewer.core().background_color= Eigen::Vector4f(1,1,1,1);
    
     viewer.data().set_uv(V_uv);

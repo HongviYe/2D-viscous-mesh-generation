@@ -8,7 +8,7 @@
 
 #include "../include/rigidmapping.h"
 #include "igl/triangle/triangulate.h"
-
+#include "../include/nearestsearch.h"
 
 #include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
@@ -400,35 +400,66 @@ namespace RIGIDT
 
 
  void recompute_dxdy(SCAFData& s) {
+
+
     auto distance = [s](const Eigen::MatrixXd& uv) {
-        Eigen::VectorXd distance;
-        distance.resize(s.mesh->V_.rows() );
-        for (int i = 0; i < distance.rows(); i++) {
-            distance(i) = sqrt(pow(uv(i+s.mesh->nlayer_* distance.rows(), 0) - uv(i, 0), 2) + pow(uv(i + s.mesh->nlayer_ * distance.rows(), 1) - uv(i, 1), 2));
+        Eigen::VectorXd dtv;
+        dtv.resize(s.mesh->F_.rows() );
+        for (int i = 0; i < dtv.rows(); i++) {
+            int start = s.mesh->F_(i, 0); int end = s.mesh->F_(i,1); 
+            int startu = s.mesh->F_(i, 0) + s.mesh->nlayer_ * dtv.rows(); int endu = s.mesh->F_(i, 1) + s.mesh->nlayer_ * dtv.rows();
+            double d1= sqrt(pow(uv(start + s.mesh->nlayer_ * dtv.rows(), 0) - uv(start, 0), 2) + pow(uv(start + s.mesh->nlayer_ * dtv.rows(), 1) - uv(start, 1), 2));
+            double d2 = sqrt(pow(uv(end + s.mesh->nlayer_ * dtv.rows(), 0) - uv(end, 0), 2) + pow(uv(end + s.mesh->nlayer_ * dtv.rows(), 1) - uv(end, 1), 2));
+            double d3 = sqrt(pow(uv(end + s.mesh->nlayer_ * dtv.rows(), 0) - uv(start, 0), 2) + pow(uv(end + s.mesh->nlayer_ * dtv.rows(), 1) - uv(start, 1), 2));
+            double d4 = sqrt(pow(uv(start + s.mesh->nlayer_ * dtv.rows(), 0) - uv(end, 0), 2) + pow(uv(start + s.mesh->nlayer_ * dtv.rows(), 1) - uv(end, 1), 2));
+            dtv(i) = std::min(std::min(d1, d2), std::min(d3, d4));
+            //double d = sqrt(pow(uv(startu, 0) - uv(endu, 0), 2) + pow(uv(startu, 1) - uv(endu, 1), 2));
+            //double h1 = sqrt(pow(uv(startu, 0) - uv(startu- dtv.rows(), 0), 2) + pow(uv(startu, 1) - uv(startu- dtv.rows(), 1), 2));
+            //double h2 = sqrt(pow(uv(endu, 0) - uv(endu - dtv.rows(), 0), 2) + pow(uv(endu, 1) - uv(endu - dtv.rows(), 1), 2));
+            //double h = (h1 + h2) / 2;
+            //if (abs(d - h) / h < 0.1) {
+            //    dtv(i) += 0.1*s.mesh->target_length_;
+            //}
+            //distance(i)=d / h - 3;
         }
-        return distance;
+        return dtv;
     };
+#if 0
     Eigen::MatrixXd m_V_new = s.w_uv.topRows(s.mv_num);
-    Eigen::VectorXd scale = distance(m_V_new) / s.mesh->target_length_;
+    Eigen::VectorXd scale = distance(m_V_new)/ s.mesh->target_length_;
+#else
+    Eigen::MatrixXd mv1 = s.w_uv.topRows(s.mv_num).bottomRows(s.mesh->V_.rows());
+    Eigen::MatrixXd mv2 = s.w_uv.topRows(s.mv_num).topRows(s.mesh->V_.rows());
+    Eigen::VectorXd scale = nearestDistance(mv1, mv2, s.mesh->F_);
+    scale/= s.mesh->target_length_;
+#endif
 
     double sum = scale.sum()/scale.rows();
     std::cout << sum << "=sum" << std::endl;
     for (int i = 0; i < scale.rows(); i++) {
         if (scale(i) >= 0.9|| sum < 0.25)
             scale(i) = 1;
-        scale(i) = pow(scale(i), sum-0.1);
+        scale(i) = pow(scale(i), std::min(sum+0.1,1.0));
+        //if (scale(i) < 1)
+        //    scale(i) = 1;
+        //else
+        //    scale(i) = 1 / log(scale(i));
        
-       // scale(i) = 1;
+        scale(i) = 1;
     }
+
+
+
+
   
 
-    Eigen::MatrixXd new_V;
-    Eigen::MatrixXi new_F;
+
     std::vector<int> d2nd;
     
-    s.mesh->getDiscreteCylinderMesh(new_V,new_F,scale, d2nd);
+    s.mesh->getDiscreteCylinderMesh(s.target_V,s.target_F,scale, d2nd);
    // s.m_V = new_V;
-
+    Eigen::MatrixXd& new_V= s.target_V;
+    Eigen::MatrixXi& new_F= s.target_F;
     int v_n = s.mv_num + s.sv_num;
     int f_n = s.mf_num + s.sf_num;
     int dim = s.dim;
@@ -540,6 +571,42 @@ namespace RIGIDT
 
     return energy;
 }
+
+ void compute_biggest_singular_value(SCAFData& s, Eigen::VectorXd& vec)
+ {
+     typedef Eigen::Matrix2d Mat2;
+     typedef Eigen::Matrix<double, 2, 2, Eigen::RowMajor> RMat2;
+     typedef Eigen::Vector2d Vec2;
+     Mat2 ji, ri, ti, ui, vi;
+     Vec2 sing;
+     Vec2 closest_sing_vec;
+     RMat2 mat_W;
+     Vec2 m_sing_new;
+     double s1, s2;
+     const auto& Ji = s.Ji_m;
+     if (s.Ji_m.rows() == 0)
+         return;
+     vec.resize(s.input_point_num);
+     double d = 0;
+     int start = Ji.rows() - 4 * s.input_point_num;;
+     for (int i = start; i < Ji.rows(); i+=4)
+     {
+         for (int j = i; j < i + 4; j++) {
+             ji(0, 0) = Ji(j, 0);
+             ji(0, 1) = Ji(j, 1);
+             ji(1, 0) = Ji(j, 2);
+             ji(1, 1) = Ji(j, 3);
+
+             igl::polar_svd(ji, ri, ti, ui, sing, vi);
+
+             s1 = sing(0);
+             s2 = sing(1);
+             d = std::max(d, s1); d = std::max(d, s2);
+         }
+        
+         vec[(i-start)/4] = d;
+     }
+ }
 
  void buildAm(const Eigen::VectorXd &sqrt_M,
              const Eigen::SparseMatrix<double> &Dx,
