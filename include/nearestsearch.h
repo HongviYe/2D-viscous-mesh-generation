@@ -1,7 +1,8 @@
 #ifndef _NEAREST_SEARCH_H_
 #define _NEAREST_SEARCH_H_
 
-#include <Eigen/core>
+
+#include <Eigen/Dense>
 /*
 * * this file contain the easiest implementation of nearest search
 * We should use AABB tree or kd tree to do that if we have free time

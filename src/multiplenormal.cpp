@@ -1,7 +1,7 @@
 #include <igl/matrix_to_list.h>
 #include <igl/PI.h>
 
-#include "..\include\multiplenormal.h"
+#include "../include/multiplenormal.h"
 
 namespace RIGIDT {
 	void VirtualMeshGeneration(const Eigen::MatrixXd  V_input, const Eigen::MatrixXi  F_input, Eigen::MatrixXd & V_output, Eigen::MatrixXi & F_output)

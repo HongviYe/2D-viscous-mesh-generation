@@ -94,7 +94,6 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
 
     return false;
 }
-#define PA "C:/code/libigl-example-project/build/_deps/libigl_tutorial_tata-src"
 int main(int argc, char* argv[])
 {
 	CLI::App app("2Dexpansion");
@@ -162,8 +161,10 @@ int main(int argc, char* argv[])
 
     Eigen::MatrixXd Discre_V;
     Eigen::MatrixXi Discre_F;
-    hybrid_data.mesh->getCylinderMesh(V,F);
-    hybrid_data.mesh->getDiscreteCylinderMesh(Discre_V, Discre_F);
+
+	Eigen::VectorXd scale; std::vector<int> discreate;
+    hybrid_data.mesh->getCylinderMesh(V,F,scale);
+    hybrid_data.mesh->getDiscreteCylinderMesh(Discre_V, Discre_F,scale,discreate);
 
     hybrid_data.mesh->getUVMesh(V_uvp, F_uvp);
 
